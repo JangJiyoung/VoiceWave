@@ -3,59 +3,86 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>고급 발음 교정 파형 비교</title>
+    <title>Pronunciation Master</title>
     <style>
-        * { box-sizing: border-box; }
-        body { font-family: -apple-system, sans-serif; margin: 0; padding: 15px; color: #fff; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); 
-               background: linear-gradient(135deg, #4b2a61 0%, #2f6966 100%); /* 보라->청록 그라데이션 배경 */ 
-               min-height: 100vh; display: flex; align-items: center; justify-content: center;}
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 20px; color: #fff;
+            background: linear-gradient(135deg, #4b2a61 0%, #2f6966 100%); 
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+        }
         
-        .container { background: rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); 
-                     width: 100%; max-width: 600px; border: 1px solid rgba(255,255,255,0.1); }
-        h2 { font-size: 1.3rem; text-align: center; margin: 0 0 25px; }
-        h3 { font-size: 1rem; color: #ddd; margin: 0 0 10px; }
-        .section { margin-bottom: 35px; }
-        
-        /* 캔버스 래퍼 (상대 위치 지정용) */
-        .canvas-wrapper { position: relative; width: 100%; height: 120px; background-color: rgba(0, 0, 0, 0.2); border-radius: 10px; margin-bottom: 15px; overflow: hidden; }
-        canvas { display: block; width: 100%; height: 100%; border-radius: 10px;}
-        
-        /* 재생 위치 수직선 (Playhead) */
-        .playhead { position: absolute; top: 0; left: 0; width: 1.5px; height: 100%; background-color: rgba(255, 0, 0, 0.8); pointer-events: none; transform: translateX(-50%); transition: left 0.1s linear; box-shadow: 0 0 5px rgba(255,0,0,0.5); }
-        
-        .btn-group { display: flex; gap: 15px; margin-bottom: 15px; }
-        button { flex: 1; padding: 18px; border: none; border-radius: 10px; font-size: 17px; font-weight: bold; color: white; background-color: #007aff; cursor: pointer; touch-action: manipulation; }
-        button:disabled { background-color: rgba(200,200,200,0.3); color: #ccc; cursor: not-allowed; }
-        button.recording { background-color: #ff3b30; animation: pulse 1.2s infinite alternate; }
-        
-        audio { width: 100%; height: 45px; outline: none; margin-top: 10px;}
+        .container { 
+            width: 100%; max-width: 500px; 
+            background: rgba(0, 0, 0, 0.2); padding: 25px; 
+            border-radius: 20px; backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
 
-        @keyframes pulse { from { transform: scale(1); opacity: 1; } to { transform: scale(1.03); opacity: 0.8;} }
+        h2 { text-align: center; font-weight: 300; letter-spacing: 1px; margin-bottom: 30px; }
+        .section { margin-bottom: 40px; }
+        .label { font-size: 0.9rem; color: rgba(255,255,255,0.7); margin-bottom: 10px; display: block; }
+        
+        /* 파형 컨테이너 */
+        .wave-box { 
+            position: relative; width: 100%; height: 120px; 
+            background: rgba(0, 0, 0, 0.3); border-radius: 12px; 
+            margin-bottom: 15px; overflow: hidden; 
+        }
+        canvas { width: 100%; height: 100%; display: block; }
+        
+        /* 재생 막대 (Playhead) - CSS transition 제거로 끊김 방지 */
+        .playhead { 
+            position: absolute; top: 0; left: 0; width: 2px; height: 100%; 
+            background: #ff3b30; box-shadow: 0 0 10px rgba(255, 59, 48, 0.8);
+            pointer-events: none; z-index: 5; transform: translateX(-50%);
+        }
+
+        .controls { display: flex; gap: 10px; margin-bottom: 10px; }
+        button { 
+            flex: 1; padding: 15px; border: none; border-radius: 12px;
+            font-size: 16px; font-weight: bold; color: white;
+            background: rgba(255, 255, 255, 0.15); cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:active { background: rgba(255, 255, 255, 0.3); }
+        button#record-btn { background: #ff3b30; }
+        button#record-btn.recording { animation: pulse 1s infinite; }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        audio { width: 100%; height: 40px; filter: invert(100%); opacity: 0.7; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🗣️ 발음 및 강세 교정 비교</h2>
+    <h2>English Accent Guide</h2>
     
     <div class="section">
-        <h3>Native Speaker</h3>
-        <div class="canvas-wrapper">
-            <canvas id="native-canvas" width="1000" height="120"></canvas>
+        <span class="label">NATIVE SPEAKER</span>
+        <div class="wave-box">
+            <canvas id="native-canvas"></canvas>
             <div id="native-playhead" class="playhead"></div>
         </div>
         <audio id="native-audio" src="native_sample.mp3" controls crossorigin="anonymous"></audio>
     </div>
 
     <div class="section">
-        <h3>My Recording</h3>
-        <div class="canvas-wrapper">
-            <canvas id="user-canvas" width="1000" height="120"></canvas>
+        <span class="label">MY RECORDING</span>
+        <div class="wave-box">
+            <canvas id="user-canvas"></canvas>
             <div id="user-playhead" class="playhead"></div>
         </div>
-        <div class="btn-group">
-            <button id="record-btn">🔴 녹음 시작</button>
-            <button id="stop-btn" disabled>⏹️ 중지</button>
+        <div class="controls">
+            <button id="record-btn">🔴 Record</button>
+            <button id="stop-btn" disabled>⏹️ Stop</button>
         </div>
         <audio id="user-audio" controls></audio>
     </div>
@@ -65,7 +92,7 @@
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
 
-    // DOM 요소
+    // 요소 선택
     const nativeAudio = document.getElementById('native-audio');
     const nativeCanvas = document.getElementById('native-canvas');
     const nativePlayhead = document.getElementById('native-playhead');
@@ -75,159 +102,133 @@
     const recordBtn = document.getElementById('record-btn');
     const stopBtn = document.getElementById('stop-btn');
 
-    let mediaRecorder;
-    let audioChunks = [];
-    let nativeBuffer;
-    let userBuffer;
+    let nativeBuffer, userBuffer;
+    let nativeAnimId, userAnimId;
+    let mediaRecorder, audioChunks = [];
 
-    // 1. 모바일 오디오 컨텍스트 초기화 (터치 이벤트 기반)
-    function initAudioContext() {
-        if (!audioCtx) {
-            audioCtx = new AudioContext();
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
-        }
+    // 1. 초기화 (사용자 인터렉션 대응)
+    function initCtx() {
+        if (!audioCtx) audioCtx = new AudioContext();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
     }
 
-    // 2. 전체 오디오 버퍼 로드 및 분석 함수 (네이티브 오디오용)
-    async function loadNativeAudio(url) {
-        try {
-            const response = await fetch(url);
-            const arrayBuffer = await response.arrayBuffer();
-            nativeBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-            drawWaveform(nativeBuffer, nativeCanvas);
-        } catch (e) {
-            console.error("네이티브 오디오 분석 실패", e);
-        }
-    }
-
-    // 3. 전체 파형 분석 및 그리기 함수
-    function drawWaveform(audioBuffer, canvas) {
+    // 2. 파형 그리기 (그라데이션 + 대칭)
+    function drawWaveform(buffer, canvas) {
         const ctx = canvas.getContext('2d');
-        const data = audioBuffer.getChannelData(0); // 첫 번째 채널 사용
-        const length = data.length;
-        const width = canvas.width;
-        const height = canvas.height;
-        const step = Math.ceil(length / width); // 데이터 샘플링 간격
+        const data = buffer.getChannelData(0);
+        const width = canvas.width = canvas.offsetWidth * 2; // 고해상도 대응
+        const height = canvas.height = canvas.offsetHeight * 2;
+        const step = Math.ceil(data.length / width);
+        const amp = height / 2;
 
         ctx.clearRect(0, 0, width, height);
-        ctx.lineCap = 'round';
-        ctx.lineWidth = 1; // 연속적인 선 느낌을 위해 얇게
-
-        // 파형 스타일: 연한 파랑/보라색 그라데이션
-        const gradient = ctx.createLinearGradient(0, height * 0.3, 0, height * 0.7);
-        gradient.addColorStop(0, 'rgba(173, 216, 230, 0.8)'); // 연한 파랑 (위)
-        gradient.addColorStop(0.5, 'rgba(230, 190, 255, 0.8)'); // 연한 보라 (중앙)
-        gradient.addColorStop(1, 'rgba(173, 216, 230, 0.8)'); // 연한 파랑 (아래)
-        ctx.strokeStyle = gradient;
-
+        
+        // 그라데이션 생성
+        const grad = ctx.createLinearGradient(0, 0, 0, height);
+        grad.addColorStop(0, '#add8e6'); // 상단 연청
+        grad.addColorStop(0.5, '#e6beff'); // 중앙 연보라
+        grad.addColorStop(1, '#add8e6'); // 하단 연청
+        
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 2;
         ctx.beginPath();
-        
-        let x = 0;
-        for (let i = 0; i < length; i += step) {
-            let maxAmplitude = 0;
-            // 블록 내 최대값 찾기 (성능 최적화)
-            for (let j = 0; j < step && (i + j) < length; j++) {
-                const val = Math.abs(data[i + j]);
-                if (val > maxAmplitude) maxAmplitude = val;
+
+        for (let i = 0; i < width; i++) {
+            let min = 1.0, max = -1.0;
+            for (let j = 0; j < step; j++) {
+                const datum = data[(i * step) + j];
+                if (datum < min) min = datum;
+                if (datum > max) max = datum;
             }
-
-            // 중앙선 기준 상하 대칭으로 그리기
-            const barHeight = Math.max(1, maxAmplitude * height * 0.9);
-            const y = (height - barHeight) / 2;
-            ctx.moveTo(x, y);
-            ctx.lineTo(x, height - y); // 중앙선 대칭
-
-            x++;
+            // 중앙 대칭선 그리기
+            ctx.moveTo(i, (1 + min) * amp);
+            ctx.lineTo(i, (1 + max) * amp);
         }
-        
         ctx.stroke();
     }
 
-    // 4. 재생 위치 수직선 (Playhead) 업데이트 함수
-    function updatePlayhead(currentTime, duration, playheadElem) {
-        if (duration) {
-            const progress = (currentTime / duration) * 100;
-            playheadElem.style.left = progress + '%';
-        } else {
-            playheadElem.style.left = '0%';
+    // 3. 부드러운 재생 막대 이동 (requestAnimationFrame)
+    function animateNative() {
+        if (!nativeAudio.paused && !nativeAudio.ended) {
+            const prog = (nativeAudio.currentTime / nativeAudio.duration) * 100;
+            nativePlayhead.style.left = prog + '%';
+            nativeAnimId = requestAnimationFrame(animateNative);
         }
     }
 
-    // 5. 네이티브 오디오 초기화 및 이벤트 연결
-    nativeAudio.addEventListener('loadstart', async () => {
-        initAudioContext();
-        if (nativeAudio.src) {
-             // 캔버스 초기화
-            const ctx = nativeCanvas.getContext('2d');
-            ctx.clearRect(0, 0, nativeCanvas.width, nativeCanvas.height);
-            nativePlayhead.style.left = '0%';
-            loadNativeAudio(nativeAudio.src);
+    function animateUser() {
+        if (!userAudio.paused && !userAudio.ended) {
+            const prog = (userAudio.currentTime / userAudio.duration) * 100;
+            userPlayhead.style.left = prog + '%';
+            userAnimId = requestAnimationFrame(animateUser);
         }
-    });
+    }
 
-    nativeAudio.addEventListener('timeupdate', () => {
-        updatePlayhead(nativeAudio.currentTime, nativeAudio.duration, nativePlayhead);
-    });
+    // 4. 네이티브 파일 로드 및 이벤트
+    async function loadNative() {
+        if (!nativeAudio.src || nativeAudio.src.includes('undefined')) return;
+        try {
+            const res = await fetch(nativeAudio.src);
+            const arrayBuffer = await res.arrayBuffer();
+            nativeBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            drawWaveform(nativeBuffer, nativeCanvas);
+        } catch (e) { console.error("Native load error", e); }
+    }
 
-    // 6. 사용자 녹음 기능 및 이벤트 연결
-    recordBtn.addEventListener('click', async () => {
-        initAudioContext();
+    nativeAudio.onplay = () => { initCtx(); animateNative(); };
+    nativeAudio.onpause = () => cancelAnimationFrame(nativeAnimId);
+    nativeAudio.onseeked = () => {
+        const prog = (nativeAudio.currentTime / nativeAudio.duration) * 100;
+        nativePlayhead.style.left = prog + '%';
+    };
 
+    // 5. 녹음 로직
+    recordBtn.onclick = async () => {
+        initCtx();
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            // iOS 등 일부 모바일 지원을 위해 마임타입 지정 생략
             mediaRecorder = new MediaRecorder(stream);
             audioChunks = [];
 
-            mediaRecorder.ondataavailable = e => {
-                if (e.data.size > 0) audioChunks.push(e.data);
-            };
-
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
             mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks);
-                const audioUrl = URL.createObjectURL(audioBlob);
-                userAudio.src = audioUrl;
-
-                // 녹음 오디오 분석 및 전체 파형 그리기
-                const arrayBuffer = await audioBlob.arrayBuffer();
+                const blob = new Blob(audioChunks);
+                userAudio.src = URL.createObjectURL(blob);
+                const arrayBuffer = await blob.arrayBuffer();
                 userBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 drawWaveform(userBuffer, userCanvas);
-                userPlayhead.style.left = '0%'; // 재생 위치 초기화
-
-                stream.getTracks().forEach(track => track.stop());
+                userPlayhead.style.left = '0%';
+                stream.getTracks().forEach(t => t.stop());
             };
 
             mediaRecorder.start();
-            recordBtn.disabled = true;
-            stopBtn.disabled = false;
+            recordBtn.disabled = true; stopBtn.disabled = false;
             recordBtn.classList.add('recording');
-            recordBtn.innerText = '녹음 중...';
+        } catch (e) { alert("마이크 권한이 필요합니다."); }
+    };
 
-            // 녹음 중에는 파형 초기화
-            const ctx = userCanvas.getContext('2d');
-            ctx.clearRect(0, 0, userCanvas.width, userCanvas.height);
-            userPlayhead.style.left = '0%';
+    stopBtn.onclick = () => {
+        mediaRecorder.stop();
+        recordBtn.disabled = false; stopBtn.disabled = true;
+        recordBtn.classList.remove('recording');
+    };
 
-        } catch (err) {
-            alert('마이크 접근 권한이 필요합니다.');
+    userAudio.onplay = () => animateUser();
+    userAudio.onpause = () => cancelAnimationFrame(userAnimId);
+    userAudio.onseeked = () => {
+        const prog = (userAudio.currentTime / userAudio.duration) * 100;
+        userPlayhead.style.left = prog + '%';
+    };
+
+    // 페이지 로드 후 네이티브 분석 시작
+    window.onload = () => {
+        // 사용자가 처음 클릭할 때 컨텍스트가 활성화되므로 로드는 별도로 진행
+        if(nativeAudio.src) {
+            // 오디오 컨텍스트가 클릭 전엔 생성이 안될 수 있으므로 임시 생성
+            audioCtx = new AudioContext();
+            loadNative();
         }
-    });
-
-    stopBtn.addEventListener('click', () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
-            mediaRecorder.stop();
-            recordBtn.disabled = false;
-            stopBtn.disabled = true;
-            recordBtn.classList.remove('recording');
-            recordBtn.innerText = '🔴 녹음 시작';
-        }
-    });
-
-    userAudio.addEventListener('timeupdate', () => {
-        updatePlayhead(userAudio.currentTime, userAudio.duration, userPlayhead);
-    });
+    };
 </script>
 </body>
 </html>
