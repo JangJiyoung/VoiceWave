@@ -3,142 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Color Visualizer</title>
+    <title>영어 발음 파형 비교</title>
     <style>
-        :root { --bg: #0b0f19; }
-        body { background: var(--bg); color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
-        #info-box { text-align: center; margin-bottom: 20px; }
-        #display-text { color: #00d2ff; font-size: 1.1rem; min-height: 1.5em; }
-        canvas { width: 90%; max-width: 600px; height: 300px; background: rgba(0,0,0,0.5); border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1); }
-        .controls { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 600px; }
-        button { padding: 18px; border: none; border-radius: 15px; font-weight: bold; cursor: pointer; color: white; transition: 0.3s; font-size: 1rem; }
-        .btn-mic { background: linear-gradient(135deg, #ff416c, #ff4b2b); grid-column: span 2; }
-        .btn-play { background: linear-gradient(135deg, #00d2ff, #3a7bd5); }
-        .btn-stop { background: #334155; }
-        button:hover { transform: translateY(-3px); filter: brightness(1.2); }
-        button:active { transform: scale(0.95); }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .section { margin-bottom: 30px; }
+        canvas { width: 100%; height: 150px; background-color: #222; border-radius: 5px; margin-top: 10px; display: block; }
+        button { padding: 10px 15px; border: none; border-radius: 5px; background-color: #007bff; color: white; cursor: pointer; font-size: 14px; margin-right: 5px; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        button.recording { background-color: #dc3545; animation: pulse 1.5s infinite; }
+        audio { width: 100%; margin-top: 10px; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body>
 
-    <div id="info-box">
-        <h2>VOICE COLOR SYNC</h2>
-        <div id="display-text">모드 선택 시 시각화가 시작됩니다.</div>
+<div class="container">
+    <h2>🗣️ 음성 파형 비교 학습</h2>
+    
+    <div class="section">
+        <h3>Native Speaker</h3>
+        <audio id="native-audio" src="native_sample.mp3" controls crossorigin="anonymous"></audio>
+        <canvas id="native-canvas"></canvas>
     </div>
 
-    <canvas id="visualizer"></canvas>
+    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
 
-    <div class="controls">
-        <button class="btn-mic" onclick="startMic()">🎤 실시간 녹음 시각화</button>
-        <button class="btn-play" onclick="playAudioFile()">🔊 샘플 음성 재생 시각화</button>
-        <button class="btn-stop" onclick="stopAll()">🛑 모든 작동 정지</button>
+    <div class="section">
+        <h3>My Recording</h3>
+        <div>
+            <button id="record-btn">🔴 녹음 시작</button>
+            <button id="stop-btn" disabled>⏹️ 녹음 중지</button>
+        </div>
+        <audio id="user-audio" controls></audio>
+        <canvas id="user-canvas"></canvas>
     </div>
+</div>
 
-    <script>
-        let audioCtx, analyser, source, animationId, audioElem, stream;
+<script>
+    // Audio Context 설정 (브라우저 호환성)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx;
 
-        function initAudio() {
-            if (!audioCtx) {
-                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                analyser = audioCtx.createAnalyser();
-                // fftSize를 256으로 설정하여 적절한 수의 막대 생성
-                analyser.fftSize = 256; 
-                analyser.smoothingTimeConstant = 0.85;
-            }
-            if (audioCtx.state === 'suspended') audioCtx.resume();
-        }
+    // DOM 요소
+    const nativeAudio = document.getElementById('native-audio');
+    const nativeCanvas = document.getElementById('native-canvas');
+    const userAudio = document.getElementById('user-audio');
+    const userCanvas = document.getElementById('user-canvas');
+    const recordBtn = document.getElementById('record-btn');
+    const stopBtn = document.getElementById('stop-btn');
 
-        // 1. 마이크 녹음 시각화
-        async function startMic() {
-            await stopAll();
-            initAudio();
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                source = audioCtx.createMediaStreamSource(stream);
-                source.connect(analyser);
-                document.getElementById('display-text').innerText = "내 목소리 분석 중...";
-                draw();
-            } catch (err) { alert("마이크 권한이 거절되었습니다."); }
-        }
+    let mediaRecorder;
+    let audioChunks = [];
+    let isNativeVisualized = false;
 
-        // 2. 음성 파일 재생 시각화 (목소리에 100% 동기화)
-        function playAudioFile() {
-            stopAll();
-            initAudio();
-            
-            // 테스트용 음성 파일 (목소리가 포함된 샘플)
-            audioElem = new Audio('https://soundhelix.com');
-            audioElem.crossOrigin = "anonymous";
-            
-            source = audioCtx.createMediaElementSource(audioElem);
-            source.connect(analyser);
-            analyser.connect(audioCtx.destination); // 스피커로 소리 출력
+    // 파형(막대)을 그리는 공통 함수
+    function drawVisualizer(sourceNode, canvasElem) {
+        const canvasCtx = canvasElem.getContext('2d');
+        const analyser = audioCtx.createAnalyser();
+        
+        sourceNode.connect(analyser);
+        // 막대 개수 조절 (값이 클수록 막대가 얇아지고 많아짐)
+        analyser.fftSize = 256; 
+        
+        const bufferLength = analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
 
-            document.getElementById('display-text').innerText = "음성 재생 및 주파수 분석 중...";
-            audioElem.play();
-            draw();
-
-            audioElem.onended = stopAll;
-        }
-
-        function stopAll() {
-            if (animationId) cancelAnimationFrame(animationId);
-            if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-            if (audioElem) { audioElem.pause(); audioElem = null; }
-            if (source) source.disconnect();
-            document.getElementById('display-text').innerText = "정지 상태";
-            
-            const canvas = document.getElementById('visualizer');
-            const ctx = canvas.getContext('2d');
-            setTimeout(() => ctx.clearRect(0, 0, canvas.width, canvas.height), 50);
-        }
+        // 캔버스 크기 맞춤
+        canvasElem.width = canvasElem.clientWidth;
+        canvasElem.height = canvasElem.clientHeight;
 
         function draw() {
-            animationId = requestAnimationFrame(draw);
-            const bufferLength = analyser.frequencyBinCount;
-            const dataArray = new Uint8Array(bufferLength);
+            requestAnimationFrame(draw);
             analyser.getByteFrequencyData(dataArray);
 
-            const canvas = document.getElementById('visualizer');
-            const ctx = canvas.getContext('2d');
-            canvas.width = canvas.offsetWidth;
-            canvas.height = canvas.offsetHeight;
+            // 배경 그리기
+            canvasCtx.fillStyle = '#222';
+            canvasCtx.fillRect(0, 0, canvasElem.width, canvasElem.height);
 
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            const barWidth = (canvas.width / bufferLength) * 2;
+            // 막대 그리기
+            const barWidth = (canvasElem.width / bufferLength) * 2.5;
+            let barHeight;
             let x = 0;
 
             for (let i = 0; i < bufferLength; i++) {
-                // 1. 소리 크기에 따른 높이 (진폭)
-                const barHeight = (dataArray[i] / 255) * canvas.height * 1.3;
-
-                // 2. 주파수에 따른 색상 변화 (고음으로 갈수록 색상값 변경)
-                // HSL 색상 모델 사용: i(주파수 위치)에 따라 0(빨강) ~ 360(보라)까지 순환
-                const hue = (i / bufferLength) * 360;
-                // 소리 크기가 클수록 채도와 밝기를 높여 더 화려하게 표현
-                const saturation = 60 + (dataArray[i] / 255) * 40; 
-                const lightness = 40 + (dataArray[i] / 255) * 20;
-
-                ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                barHeight = dataArray[i] / 2; // 높이 스케일링
                 
-                // 막대 그리기 (하단 기준, 위로 솟구침)
-                // 각 막대에 약간의 둥근 효과와 간격 부여
-                ctx.beginPath();
-                const radius = 4;
-                const rectX = x;
-                const rectY = canvas.height - barHeight;
-                const rectW = barWidth - 2;
-                const rectH = barHeight;
+                // 막대 색상 (아래쪽은 파란색, 위로 갈수록 밝아짐)
+                canvasCtx.fillStyle = `rgb(${barHeight + 100}, 50, 250)`;
+                canvasCtx.fillRect(x, canvasElem.height - barHeight, barWidth, barHeight);
 
-                if (rectH > 2) {
-                    ctx.roundRect ? ctx.roundRect(rectX, rectY, rectW, rectH, [radius, radius, 0, 0]) : ctx.fillRect(rectX, rectY, rectW, rectH);
-                    ctx.fill();
-                }
-
-                x += barWidth;
+                x += barWidth + 1; // 1px 간격
             }
         }
-    </script>
-</body>
-</html>
+        draw();
+    }
+
+    // 1. 네이티브 오디오 시각화 연결 (재생 시 1회 연결)
+    nativeAudio.
