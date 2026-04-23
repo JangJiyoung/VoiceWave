@@ -3,215 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Perfect Accent Trainer</title>
+    <title>AI 발음 교정 트레이너</title>
     <style>
-        :root { --accent: #ff3b30; --bg: #1e1e1e; --glass: rgba(255, 255, 255, 0.1); }
+        :root { --accent: #ff3b30; --native-color: #00d4ff; --user-color: #ffcc00; }
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        
         body { 
-            font-family: -apple-system, sans-serif; margin: 0; padding: 15px; color: #fff;
-            background: linear-gradient(135deg, #2c3e50 0%, #000000 100%); 
+            font-family: -apple-system, sans-serif; margin: 0; padding: 20px; color: #fff;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); 
             min-height: 100vh; display: flex; flex-direction: column; align-items: center;
         }
-        
-        .app-container { width: 100%; max-width: 500px; padding-top: 20px; }
-        
-        /* 문장 표시 영역 */
-        .sentence-card {
-            background: var(--glass); padding: 25px; border-radius: 20px;
-            margin-bottom: 25px; text-align: center; border: 1px solid rgba(255,255,255,0.1);
-        }
-        .sentence-en { font-size: 1.5rem; font-weight: bold; margin-bottom: 10px; color: #fff; line-height: 1.4; }
-        .sentence-ko { font-size: 1rem; color: rgba(255,255,255,0.6); }
 
-        .wave-section { margin-bottom: 30px; position: relative; }
-        .label { font-size: 0.8rem; font-weight: bold; color: #00d4ff; margin-bottom: 8px; display: flex; justify-content: space-between; }
-        
-        /* 파형 박스 */
+        .app-container { width: 100%; max-width: 500px; }
+
+        /* 문장 카드 */
+        .sentence-card {
+            background: rgba(255, 255, 255, 0.05); padding: 30px 20px; border-radius: 20px;
+            margin-bottom: 25px; text-align: center; border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .sentence-en { font-size: 1.6rem; font-weight: 700; margin-bottom: 8px; color: #fff; }
+        .sentence-ko { font-size: 1rem; color: rgba(255,255,255,0.5); }
+
+        .section { margin-bottom: 35px; }
+        .label { font-size: 0.8rem; font-weight: bold; margin-bottom: 10px; display: block; letter-spacing: 1px; }
+        .native-label { color: var(--native-color); }
+        .user-label { color: var(--user-color); }
+
+        /* 파형 박스 및 막대 */
         .wave-box { 
-            position: relative; width: 100%; height: 110px; 
-            background: rgba(0, 0, 0, 0.4); border-radius: 12px; overflow: hidden;
+            position: relative; width: 100%; height: 120px; 
+            background: rgba(0, 0, 0, 0.4); border-radius: 15px; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.05);
         }
         canvas { width: 100%; height: 100%; display: block; }
         
-        /* 🔴 중요: 부드러운 막대 설정 */
+        /* 재생 막대 (Playhead) - transition 절대 금지 */
         .playhead { 
             position: absolute; top: 0; left: 0; width: 2px; height: 100%; 
-            background: var(--accent); box-shadow: 0 0 10px var(--accent);
+            background: var(--accent); box-shadow: 0 0 12px var(--accent);
             pointer-events: none; z-index: 10; transform: translateX(-50%);
-            /* transition 제거: 스크립트가 직접 제어하므로 절대 있으면 안 됨 */
-            transition: none !important; 
+            transition: none !important;
         }
 
         .btn-group { display: flex; gap: 10px; margin-top: 15px; }
         button { 
-            flex: 1; padding: 16px; border: none; border-radius: 12px;
-            font-size: 15px; font-weight: bold; color: white;
+            flex: 1; padding: 18px; border: none; border-radius: 15px;
+            font-size: 16px; font-weight: bold; color: white;
             background: rgba(255, 255, 255, 0.1); cursor: pointer;
+            transition: all 0.2s;
         }
-        button#record-btn { background: #ff3b30; }
-        button#record-btn.recording { animation: pulse 1s infinite; }
-        button#sync-btn { background: #34c759; } /* 동시 재생 버튼 */
-        button:disabled { opacity: 0.2; }
-
-        audio { width: 100%; height: 35px; margin-top: 10px; filter: invert(1); opacity: 0.5; }
+        button:active { transform: scale(0.98); background: rgba(255, 255, 255, 0.2); }
         
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        button.primary { background: #007aff; }
+        button.record { background: var(--accent); }
+        button.record.recording { animation: blink 1s infinite; }
+        button.sync { background: #34c759; }
+        button:disabled { opacity: 0.2; transform: none; }
+
+        audio { display: none; } /* 오디오 태그 숨김 */
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
 <div class="app-container">
     <div class="sentence-card">
-        <div class="sentence-en">"Confidence is the key to success."</div>
-        <div class="sentence-ko">"자신감은 성공의 열쇠입니다."</div>
+        <div class="sentence-en">"Practice makes perfect."</div>
+        <div class="sentence-ko">"연습이 완벽을 만듭니다."</div>
     </div>
     
-    <div class="wave-section">
-        <div class="label">NATIVE <span>Standard Stress</span></div>
+    <div class="section">
+        <span class="label native-label">● NATIVE SPEAKER</span>
         <div class="wave-box">
             <canvas id="native-canvas"></canvas>
             <div id="native-playhead" class="playhead"></div>
         </div>
-        <audio id="native-audio" src="native_sample.mp3" crossorigin="anonymous"></audio>
-        <button onclick="document.getElementById('native-audio').play()" style="padding:10px; margin-top:5px; width:100%;">▶ 네이티브 듣기</button>
+        <div class="btn-group">
+            <button class="primary" onclick="handleNativePlay()">▶ 네이티브 듣기</button>
+        </div>
+        <audio id="native-audio" src="https://actions.google.com/sounds/v1/speech/voices_reading_a_poem.ogg" crossorigin="anonymous"></audio>
     </div>
 
-    <div class="wave-section">
-        <div class="label">MY VOICE <span>Your Rhythm</span></div>
+    <div class="section">
+        <span class="label user-label">● MY VOICE</span>
         <div class="wave-box">
             <canvas id="user-canvas"></canvas>
             <div id="user-playhead" class="playhead"></div>
         </div>
         <div class="btn-group">
-            <button id="record-btn">🔴 녹음</button>
-            <button id="stop-btn" disabled>⏹️ 중지</button>
+            <button id="record-btn" class="record" onclick="toggleRecording()">🔴 녹음 시작</button>
+            <button id="sync-btn" class="sync" onclick="handleSyncPlay()" disabled>🔄 동시 비교 재생</button>
         </div>
         <audio id="user-audio" controls></audio>
-        
-        <div class="btn-group">
-            <button id="sync-btn" onclick="syncPlay()">🔄 두 소리 동시에 듣기</button>
-        </div>
     </div>
 </div>
 
 <script>
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
-    
     const nativeAudio = document.getElementById('native-audio');
     const userAudio = document.getElementById('user-audio');
     const nativePlayhead = document.getElementById('native-playhead');
     const userPlayhead = document.getElementById('user-playhead');
+    const recordBtn = document.getElementById('record-btn');
+    const syncBtn = document.getElementById('sync-btn');
 
     let nativeBuffer, userBuffer;
-    let startTimeNative, startTimeUser;
-
-    // 1. 오디오 컨텍스트 초기화
-    function init() {
-        if (!audioCtx) audioCtx = new AudioContext();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-    }
-
-    // 2. 파형 그리기 (고급 대칭형)
-    function drawWaveform(buffer, canvas) {
-        const ctx = canvas.getContext('2d');
-        const data = buffer.getChannelData(0);
-        const width = canvas.width = canvas.offsetWidth * 2;
-        const height = canvas.height = canvas.offsetHeight * 2;
-        const step = Math.ceil(data.length / width);
-        const midY = height / 2;
-
-        ctx.clearRect(0, 0, width, height);
-        const grad = ctx.createLinearGradient(0, 0, 0, height);
-        grad.addColorStop(0, '#00d4ff');
-        grad.addColorStop(0.5, '#e6beff');
-        grad.addColorStop(1, '#00d4ff');
-        
-        ctx.strokeStyle = grad;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-
-        for (let i = 0; i < width; i++) {
-            let min = 1.0, max = -1.0;
-            for (let j = 0; j < step; j++) {
-                const datum = data[(i * step) + j];
-                if (datum < min) min = datum;
-                if (datum > max) max = datum;
-            }
-            ctx.moveTo(i, (1 + min) * midY);
-            ctx.lineTo(i, (1 + max) * midY);
-        }
-        ctx.stroke();
-    }
-
-    // 3. 🚀 부드러운 막대 이동 핵심 로직
-    // 오디오의 currentTime은 업데이트가 느리므로, play 시점의 시간과 결합하여 미세 보간함
-    function updatePlayhead() {
-        if (!nativeAudio.paused) {
-            const progress = (nativeAudio.currentTime / nativeAudio.duration) * 100;
-            nativePlayhead.style.left = progress + '%';
-        }
-        if (!userAudio.paused) {
-            const progress = (userAudio.currentTime / userAudio.duration) * 100;
-            userPlayhead.style.left = progress + '%';
-        }
-        requestAnimationFrame(updatePlayhead);
-    }
-    requestAnimationFrame(updatePlayhead);
-
-    // 4. 네이티브 오디오 로드
-    async function loadNative() {
-        try {
-            const res = await fetch(nativeAudio.src);
-            const ab = await res.arrayBuffer();
-            nativeBuffer = await audioCtx.decodeAudioData(ab);
-            drawWaveform(nativeBuffer, document.getElementById('native-canvas'));
-        } catch (e) { console.error(e); }
-    }
-
-    // 5. 동시 재생 (비교용)
-    function syncPlay() {
-        init();
-        nativeAudio.currentTime = 0;
-        userAudio.currentTime = 0;
-        nativeAudio.play();
-        userAudio.play();
-    }
-
-    // 녹음 로직
-    const recordBtn = document.getElementById('record-btn');
-    const stopBtn = document.getElementById('stop-btn');
     let mediaRecorder, chunks = [];
 
-    recordBtn.onclick = async () => {
-        init();
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
-        chunks = [];
-        mediaRecorder.ondataavailable = e => chunks.push(e.data);
-        mediaRecorder.onstop = async () => {
-            const blob = new Blob(chunks);
-            userAudio.src = URL.createObjectURL(blob);
-            const ab = await blob.arrayBuffer();
-            userBuffer = await audioCtx.decodeAudioData(ab);
-            drawWaveform(userBuffer, document.getElementById('user-canvas'));
-            stream.getTracks().forEach(t => t.stop());
-        };
-        mediaRecorder.start();
-        recordBtn.classList.add('recording');
-        recordBtn.disabled = true; stopBtn.disabled = false;
-    };
+    // [핵심] 오디오 컨텍스트 초기화 및 잠금 해제
+    async function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            await audioCtx.resume();
+        }
+    }
 
-    stopBtn.onclick = () => {
-        mediaRecorder.stop();
-        recordBtn.classList.remove('recording');
-        recordBtn.disabled = false; stopBtn.disabled = true;
-    };
-
-    window.onload = () => {
-        audioCtx = new AudioContext();
-        loadNative();
-    };
-</script>
-</body>
-</html>
+    // 파형 분석 및 그리기 (이미지 스타일 반영
